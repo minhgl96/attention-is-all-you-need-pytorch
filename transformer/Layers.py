@@ -35,14 +35,23 @@ class DecoderLayer(nn.Module):
         self.pos_ffn = PositionwiseFeedForward(d_model, d_inner, dropout=dropout)
 
     def forward(self, dec_input, enc_output, non_pad_mask=None, slf_attn_mask=None, dec_enc_attn_mask=None):
-        dec_output, dec_slf_attn = self.slf_attn(
+        '''
+        :param dec_input: [batch size, num q tokens, d_model]
+        :param enc_output: [batch size, num k tokens, d_model]
+        :param non_pad_mask:  [batch size, num q tokens, 1] for masking out axis-1 rows corresponding to padding q tokens
+                                axis 0      axis 1       axis 2
+        :param slf_attn_mask: [batch size, num q tokens, num q tokens] for masking out padding q tokens and future q tokens in axis 2
+        :param dec_enc_attn_mask: [batch size, num q tokens, num k tokens] for masking out padding k tokens in axis 2
+        :return:
+        '''
+        dec_output, dec_slf_attn = self.slf_attn(  # each q token doesn't apply attention over future q tokens
             dec_input, dec_input, dec_input, mask=slf_attn_mask)
         dec_output *= non_pad_mask
 
-        dec_output, dec_enc_attn = self.enc_attn(
+        dec_output, dec_enc_attn = self.enc_attn(  # each q token apply attention over all k tokens of encoder
             dec_output, enc_output, enc_output, mask=dec_enc_attn_mask)
         dec_output *= non_pad_mask
-
+        # [batch size, num q tokens, d_model]
         dec_output = self.pos_ffn(dec_output)
         dec_output *= non_pad_mask
 
